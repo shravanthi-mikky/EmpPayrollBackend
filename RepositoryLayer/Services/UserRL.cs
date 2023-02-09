@@ -1,6 +1,7 @@
 ﻿using CommonLayer.Model;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
+using Npgsql;
 using RepositoryLayer.Interface;
 using System;
 using System.Collections.Generic;
@@ -15,8 +16,10 @@ namespace RepositoryLayer.Services
     public class UserRL : IUserRL
     {
         private IConfiguration config;
-        SqlConnection sqlConnection;
-        string ConnString = "Data Source=LAPTOP-2UH1FDRP\\MSSQLSERVER01;Initial Catalog=EmpAngularjs;Integrated Security=True;";
+        SqlConnection sqlConnection1;
+        NpgsqlConnection sqlConnection;
+        //string ConString = "Data Source=LAPTOP-2UH1FDRP\\MSSQLSERVER01;Initial Catalog=EmpAngularjs;Integrated Security=True;";
+        string ConnString = "Server=localhost;Port=5432;Database=EmpAngularjs;Username=postgres; Password=Mickey@27;Integrated Security=True;";
         public UserRL(IConfiguration config)
         {
             this.config = config;
@@ -24,24 +27,24 @@ namespace RepositoryLayer.Services
         public RegistrationModel Register(RegistrationModel registrationModel)
         {
             //sqlConnection = new SqlConnection(this.config.GetConnectionString("BookStoreDB"));
-            sqlConnection = new SqlConnection(ConnString);
+            sqlConnection = new NpgsqlConnection(ConnString);
 
             using (sqlConnection)
                 try
                 {
                     //var password = this.EncryptPassword(registrationModel.Password);
-                    var password = registrationModel.Password;
-                    SqlCommand sqlCommand = new SqlCommand("dbo.SP_Register", sqlConnection);
-                    sqlCommand.CommandType = System.Data.CommandType.StoredProcedure;
+                    //var password = registrationModel.Password;
+                    NpgsqlCommand sqlCommand = new NpgsqlCommand("Call SP_Register(:Fullname,:Email,:Mobile,:Password)", sqlConnection);
+                    sqlCommand.CommandType = System.Data.CommandType.Text;
 
                     sqlConnection.Open();
-                    sqlCommand.Parameters.AddWithValue("@Fullname", registrationModel.Fullname);
-                    sqlCommand.Parameters.AddWithValue("@Email", registrationModel.Email);
-                    sqlCommand.Parameters.AddWithValue("@Mobile", registrationModel.Mobile);
-                    sqlCommand.Parameters.AddWithValue("@Password", registrationModel.Password);
+                    sqlCommand.Parameters.AddWithValue("Fullname", DbType.String).Value = registrationModel.Fullname;
+                    sqlCommand.Parameters.AddWithValue("Email", DbType.String).Value = registrationModel.Email;
+                    sqlCommand.Parameters.AddWithValue("Mobile", DbType.Int32).Value = registrationModel.Mobile;
+                    sqlCommand.Parameters.AddWithValue("Password", DbType.String).Value = registrationModel.Password;
 
                     int result = sqlCommand.ExecuteNonQuery();
-                    if (result > 0)
+                    if (result!=null)
                         return registrationModel;
                     else
                         return null;
@@ -73,25 +76,18 @@ namespace RepositoryLayer.Services
         {
             // sqlConnection = new SqlConnection(this.config.GetConnectionString("BookStoreDB"));
             //sqlConnection = new SqlConnection(ConnString);
-            using (sqlConnection = new SqlConnection(ConnString))
+            using (sqlConnection = new NpgsqlConnection(ConnString))
                 try
                 {
-                    SqlCommand sqlCommand = new SqlCommand("dbo.SP_Login", sqlConnection);
-                    sqlCommand.CommandType = System.Data.CommandType.StoredProcedure;
-
+                    string query = "select Id from Users where Email='" + loginModel.Email + "' and Password='" + loginModel.Password + "';";
+                    NpgsqlCommand sqlCommand = new NpgsqlCommand(query, sqlConnection);
+                    
                     sqlConnection.Open();
 
-                    sqlCommand.Parameters.AddWithValue("@Email", loginModel.Email);
-                    sqlCommand.Parameters.AddWithValue("@Password", loginModel.Password);
 
-                    SqlDataReader rd = sqlCommand.ExecuteReader();
-                    if (rd.HasRows)
-                    {
-                        while (rd.Read())
-                        {
-                            loginModel.Email = Convert.ToString(rd["Email"] == DBNull.Value ? default : rd["Email"]);
-                            loginModel.Password = Convert.ToString(rd["Password"] == DBNull.Value ? default : rd["Password"]);
-                        }
+                    var result = sqlCommand.ExecuteScalar();
+                    if(result != null)
+                    { 
                         var token = this.GenerateJWTToken(loginModel.Email);
                         return token;
                     }
@@ -109,12 +105,12 @@ namespace RepositoryLayer.Services
         {
             try
             {
-                sqlConnection = new SqlConnection(ConnString);
-                SqlCommand com = new SqlCommand("SpForgetPass", sqlConnection);
+                sqlConnection = new NpgsqlConnection(ConnString);
+                NpgsqlCommand com = new NpgsqlCommand("SpForgetPass", sqlConnection);
                 com.CommandType = CommandType.StoredProcedure;
                 com.Parameters.AddWithValue("@Email", Emailid);
                 sqlConnection.Open();
-                SqlDataReader rd = com.ExecuteReader();
+                NpgsqlDataReader rd = com.ExecuteReader();
                 if (rd.HasRows)
                 {
                     while (rd.Read())
@@ -139,13 +135,13 @@ namespace RepositoryLayer.Services
             {
                 if (newpassword == confirmpassword)
                 {
-                    sqlConnection = new SqlConnection(ConnString);
-                    SqlCommand com = new SqlCommand("SpReset", sqlConnection);
+                    sqlConnection = new NpgsqlConnection(ConnString);
+                    NpgsqlCommand com = new NpgsqlCommand("SpReset", sqlConnection);
                     com.CommandType = CommandType.StoredProcedure;
                     com.Parameters.AddWithValue("@Email", email);
                     com.Parameters.AddWithValue("@Password", newpassword);
                     sqlConnection.Open();
-                    SqlDataReader rd = com.ExecuteReader();
+                    NpgsqlDataReader rd = com.ExecuteReader();
                     if (rd.HasRows)
                     {
                         while (rd.Read())
