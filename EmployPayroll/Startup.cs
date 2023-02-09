@@ -38,6 +38,8 @@ namespace EmployPayroll
             services.AddTransient<IUserBL, UserBL>();
             services.AddTransient<IUserRL, UserRL>();
 
+            services.AddTransient<IEmployBL, EmployBL>();
+            services.AddTransient<IEmployRL, EmployRL>();
             //cors
 
             services.AddCors(options =>
